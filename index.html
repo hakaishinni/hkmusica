@@ -31,7 +31,7 @@
         #resultadosBusca { display: none; margin-top: 20px; }
         .item-musica { display: flex; align-items: center; gap: 15px; background: #181818; padding: 10px; border-radius: 8px; cursor: pointer; margin-bottom: 10px; transition: 0.2s;}
         .item-musica:hover { background: #282828; }
-        .item-musica img { width: 50px; height: 50px; border-radius: 4px; }
+        .item-musica img { width: 50px; height: 50px; border-radius: 4px; object-fit: cover; }
         .dados-musica { flex: 1; }
         .dados-musica p { margin: 0; }
         .titulo-lista { font-weight: bold; font-size: 15px; }
@@ -43,10 +43,8 @@
         .info-musica img { width: 56px; height: 56px; border-radius: 4px; background-color: #222; object-fit: cover;}
         
         /* Controles Nativos do HTML5 */
-        .controles-midia { width: 40%; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; }
-        audio { width: 100%; height: 35px; outline: none; border-radius: 20px;}
-        .link-externo { font-size: 12px; color: #1DB954; text-decoration: none; font-weight: bold; transition: 0.2s;}
-        .link-externo:hover { color: #fff; }
+        .controles-midia { width: 40%; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        audio { width: 100%; height: 40px; outline: none; border-radius: 20px;}
 
         /* Responsividade Mobile */
         @media (max-width: 768px) {
@@ -61,7 +59,7 @@
             .info-musica img { width: 45px; height: 45px; }
             .info-musica p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;}
             .controles-midia { width: 55%; }
-            audio { height: 30px; }
+            audio { height: 35px; }
         }
     </style>
 </head>
@@ -104,7 +102,6 @@
 
         <div class="controles-midia">
             <audio id="audioPlayer" controls></audio>
-            <a id="linkYT" class="link-externo" href="#" target="_blank" style="display:none;">▶️ Abrir no YouTube Music</a>
         </div>
     </div>
 
@@ -117,7 +114,7 @@
         }
 
         function buscarGenero(genero) {
-            document.getElementById('inputPesquisa').value = genero + " top hits";
+            document.getElementById('inputPesquisa').value = genero + " hits";
             executarBusca();
         }
 
@@ -129,29 +126,30 @@
             document.getElementById('gridGeneros').style.display = 'none';
             const caixaResultados = document.getElementById('resultadosBusca');
             caixaResultados.style.display = 'block';
-            caixaResultados.innerHTML = "<p>Pesquisando no catálogo...</p>";
+            caixaResultados.innerHTML = "<p>Buscando no catálogo global (Áudio Completo)...</p>";
 
             try {
-                const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(termo)}&entity=song&limit=15`);
-                const dados = await res.json();
+                // API Open-Source (Saavn.dev) para áudio completo
+                const urlApi = `https://saavn.dev/api/search/songs?query=${encodeURIComponent(termo)}&limit=15`;
+                const res = await fetch(urlApi);
+                const resposta = await res.json();
                 
-                if(dados.results.length === 0) {
+                const dados = resposta.data.results;
+
+                if(!dados || dados.length === 0) {
                     caixaResultados.innerHTML = "<p>Nenhuma música encontrada.</p>";
                     return;
                 }
 
                 let htmlLista = '';
-                dados.results.forEach(musica => {
-                    const nome = musica.trackName.replace(/'/g, ""); 
-                    const artista = musica.artistName.replace(/'/g, "");
-                    const capa = musica.artworkUrl100; 
-                    const capaGrande = capa.replace('100x100', '300x300');
-                    
-                    // A MÁGICA AQUI: Pegamos o link do áudio oficial (30s) direto da API
-                    const previewAudio = musica.previewUrl;
+                dados.forEach(musica => {
+                    const nome = musica.name.replace(/'/g, ""); 
+                    const artista = musica.artists.primary[0].name.replace(/'/g, "");
+                    const capa = musica.image[2].url; 
+                    const urlAudioCompleto = musica.downloadUrl[musica.downloadUrl.length - 1].url;
 
                     htmlLista += `
-                        <div class="item-musica" onclick="tocarMusica('${nome}', '${artista}', '${capaGrande}', '${previewAudio}')">
+                        <div class="item-musica" onclick="tocarMusica('${nome}', '${artista}', '${capa}', '${urlAudioCompleto}')">
                             <img src="${capa}">
                             <div class="dados-musica">
                                 <p class="titulo-lista">${nome}</p>
@@ -165,7 +163,8 @@
                 caixaResultados.innerHTML = htmlLista;
 
             } catch (e) {
-                caixaResultados.innerHTML = "<p>Erro ao conectar com a API.</p>";
+                console.error(e);
+                caixaResultados.innerHTML = "<p>Erro ao conectar com a API de música.</p>";
             }
         }
 
@@ -174,16 +173,10 @@
             document.getElementById('playerTitulo').innerText = nome;
             document.getElementById('playerArtista').innerText = artista;
 
-            // Injeta o áudio no player HTML e dá o Play
+            // Injeta a MÚSICA COMPLETA no player HTML nativo
             const player = document.getElementById('audioPlayer');
             player.src = urlAudio;
             player.play();
-
-            // Mostra o link para ouvir a música completa
-            const linkAbertura = document.getElementById('linkYT');
-            linkAbertura.style.display = 'block';
-            const buscaYT = encodeURIComponent(`${nome} ${artista}`);
-            linkAbertura.href = `https://music.youtube.com/search?q=${buscaYT}`;
         }
     </script>
 
