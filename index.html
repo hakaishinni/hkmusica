@@ -42,9 +42,11 @@
         .info-musica { display: flex; align-items: center; gap: 15px; width: 30%; }
         .info-musica img { width: 56px; height: 56px; border-radius: 4px; background-color: #222; object-fit: cover;}
         
-        /* Container do YouTube no lugar dos botões falsos */
-        .controles-midia { width: 40%; display: flex; justify-content: center; align-items: center; }
-        #containerYT { width: 100%; max-width: 300px; height: 60px; border-radius: 8px; overflow: hidden; background: #111; display: flex; justify-content: center; align-items: center; font-size: 12px; color: #666;}
+        /* Controles Nativos do HTML5 */
+        .controles-midia { width: 40%; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; }
+        audio { width: 100%; height: 35px; outline: none; border-radius: 20px;}
+        .link-externo { font-size: 12px; color: #1DB954; text-decoration: none; font-weight: bold; transition: 0.2s;}
+        .link-externo:hover { color: #fff; }
 
         /* Responsividade Mobile */
         @media (max-width: 768px) {
@@ -52,16 +54,21 @@
             .sidebar { width: 100%; height: 60px; flex-direction: row; justify-content: space-around; align-items: center; padding: 0; order: 2; position: fixed; bottom: 90px; z-index: 10; border-right: none; }
             .sidebar h1 { display: none; }
             .conteudo-principal { order: 1; height: calc(100vh - 150px); padding-bottom: 20px;}
-            .info-musica { width: 50%; }
-            .controles-midia { width: 50%; }
-            #containerYT { height: 50px; }
+            
+            /* Ajustes do player para celular */
+            .player-inferior { padding: 0 10px; }
+            .info-musica { width: 40%; gap: 10px;}
+            .info-musica img { width: 45px; height: 45px; }
+            .info-musica p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;}
+            .controles-midia { width: 55%; }
+            audio { height: 30px; }
         }
     </style>
 </head>
 <body>
 
     <div class="sidebar">
-        <h1>🎵 Music App</h1>
+        <h1>🎵 HK Music</h1>
         <a class="menu-item" onclick="mostrarIncio()">🏠 Início</a>
         <a class="menu-item" onclick="document.getElementById('inputPesquisa').focus()">🔍 Buscar</a>
     </div>
@@ -90,13 +97,14 @@
         <div class="info-musica">
             <img id="playerCapa" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt="Capa">
             <div>
-                <p id="playerTitulo" style="font-size: 14px; font-weight: bold; color: #fff;">Pronto para tocar</p>
+                <p id="playerTitulo" style="font-size: 14px; font-weight: bold; color: #fff;">Pronto</p>
                 <p id="playerArtista" style="font-size: 12px; color: #b3b3b3;">Escolha uma faixa</p>
             </div>
         </div>
 
         <div class="controles-midia">
-            <div id="containerYT">Aguardando música...</div>
+            <audio id="audioPlayer" controls></audio>
+            <a id="linkYT" class="link-externo" href="#" target="_blank" style="display:none;">▶️ Abrir no YouTube Music</a>
         </div>
     </div>
 
@@ -117,7 +125,6 @@
             const termo = document.getElementById('inputPesquisa').value;
             if(!termo) return;
             
-            // Troca a tela de Gêneros pela tela de Resultados
             document.getElementById('tituloSecao').innerText = `Resultados para: "${termo}"`;
             document.getElementById('gridGeneros').style.display = 'none';
             const caixaResultados = document.getElementById('resultadosBusca');
@@ -125,7 +132,6 @@
             caixaResultados.innerHTML = "<p>Pesquisando no catálogo...</p>";
 
             try {
-                // Puxa 15 resultados da API do iTunes
                 const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(termo)}&entity=song&limit=15`);
                 const dados = await res.json();
                 
@@ -136,15 +142,16 @@
 
                 let htmlLista = '';
                 dados.results.forEach(musica => {
-                    // Limpa aspas simples para não quebrar o clique do botão no HTML
                     const nome = musica.trackName.replace(/'/g, ""); 
                     const artista = musica.artistName.replace(/'/g, "");
-                    const capa = musica.artworkUrl100; // Pega capa em resolução média
-                    const capaGrande = capa.replace('100x100', '300x300'); // Guarda a grande pro player
+                    const capa = musica.artworkUrl100; 
+                    const capaGrande = capa.replace('100x100', '300x300');
+                    
+                    // A MÁGICA AQUI: Pegamos o link do áudio oficial (30s) direto da API
+                    const previewAudio = musica.previewUrl;
 
-                    // Cria o card da música na lista
                     htmlLista += `
-                        <div class="item-musica" onclick="tocarMusica('${nome}', '${artista}', '${capaGrande}')">
+                        <div class="item-musica" onclick="tocarMusica('${nome}', '${artista}', '${capaGrande}', '${previewAudio}')">
                             <img src="${capa}">
                             <div class="dados-musica">
                                 <p class="titulo-lista">${nome}</p>
@@ -162,23 +169,21 @@
             }
         }
 
-        function tocarMusica(nome, artista, capa) {
-            // Atualiza a imagem e os textos do Player inferior
+        function tocarMusica(nome, artista, capa, urlAudio) {
             document.getElementById('playerCapa').src = capa;
             document.getElementById('playerTitulo').innerText = nome;
             document.getElementById('playerArtista').innerText = artista;
 
-            // Injeta o mini player do YouTube embutido no centro
-            const buscaYT = encodeURIComponent(`${nome} ${artista} lyric`);
-            const containerYT = document.getElementById('containerYT');
-            
-            // O iframe vai carregar e mostrar apenas a barra de controle nativa do YouTube
-            containerYT.innerHTML = `
-                <iframe width="100%" height="60" 
-                    src="https://www.youtube.com/embed?listType=search&list=${buscaYT}&autoplay=1" 
-                    frameborder="0" allow="autoplay; encrypted-media" allowfullscreen>
-                </iframe>
-            `;
+            // Injeta o áudio no player HTML e dá o Play
+            const player = document.getElementById('audioPlayer');
+            player.src = urlAudio;
+            player.play();
+
+            // Mostra o link para ouvir a música completa
+            const linkAbertura = document.getElementById('linkYT');
+            linkAbertura.style.display = 'block';
+            const buscaYT = encodeURIComponent(`${nome} ${artista}`);
+            linkAbertura.href = `https://music.youtube.com/search?q=${buscaYT}`;
         }
     </script>
 
