@@ -129,8 +129,8 @@
             caixaResultados.innerHTML = "<p>Buscando no catálogo global (Áudio Completo)...</p>";
 
             try {
-                // API Open-Source (Saavn.dev) para áudio completo
-                const urlApi = `https://saavn.dev/api/search/songs?query=${encodeURIComponent(termo)}&limit=15`;
+                // ENDEREÇO ATUALIZADO E FUNCIONANDO
+                const urlApi = `https://saavn.sumit.co/api/search/songs?query=${encodeURIComponent(termo)}&limit=15`;
                 const res = await fetch(urlApi);
                 const resposta = await res.json();
                 
@@ -164,7 +164,7 @@
 
             } catch (e) {
                 console.error(e);
-                caixaResultados.innerHTML = "<p>Erro ao conectar com a API de música.</p>";
+                caixaResultados.innerHTML = "<p>Erro ao conectar com a API de música. O servidor pode estar em manutenção.</p>";
             }
         }
 
