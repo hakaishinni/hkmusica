@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HK Music App</title>
+    <title>HK Scripts Music</title>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -129,7 +129,7 @@
             caixaResultados.innerHTML = "<p>Buscando no catálogo da Apple...</p>";
 
             try {
-                // 1. CÉREBRO VISUAL: Busca Global da Apple (Funciona para Zé Felipe, Rock Lee, etc)
+                // 1. CÉREBRO VISUAL: Busca Global da Apple
                 const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(termo)}&entity=song&limit=15`);
                 const dados = await res.json();
 
@@ -167,52 +167,72 @@
         }
 
         async function tocarHibrido(nome, artista, capa, previaSegura) {
-            // Atualiza a interface instantaneamente
+            // Atualiza a interface
             document.getElementById('playerCapa').src = capa;
             document.getElementById('playerTitulo').innerText = nome;
-            document.getElementById('playerArtista').innerText = "Conectando ao YouTube...";
+            document.getElementById('playerArtista').innerText = "Iniciando bypass...";
             
             const player = document.getElementById('audioPlayer');
+            const termoYoutube = encodeURIComponent(`${nome} ${artista} official audio`);
+            
+            // ==========================================
+            // O BALANCEADOR DE CARGA (Vários Servidores)
+            // ==========================================
+            const servidores = [
+                "https://pipedapi.tokhmi.xyz",
+                "https://pipedapi.smnz.de",
+                "https://piped-api.garudalinux.org",
+                "https://pipedapi.kavin.rocks"
+            ];
 
-            try {
-                // 2. CÉREBRO HACKER: Extração de áudio via Piped API
-                const termoYoutube = encodeURIComponent(`${nome} ${artista} official audio`);
-                
-                // Passo A: Pesquisa no servidor pirata
-                const urlBusca = `https://pipedapi.kavin.rocks/search?q=${termoYoutube}&filter=all`;
-                const resBusca = await fetch(urlBusca);
-                const dadosBusca = await resBusca.json();
-                
-                // Pega o ID do primeiro vídeo encontrado
-                if(!dadosBusca.items || dadosBusca.items.length === 0) throw new Error("Vídeo não encontrado");
-                
-                // O URL vem no formato /watch?v=ID_DO_VIDEO
-                const urlVideo = dadosBusca.items[0].url;
-                const videoId = urlVideo.split('?v=')[1] || urlVideo.split('/watch?v=')[1];
+            let audioEncontrado = null;
 
-                // Passo B: Pede para o servidor extrair apenas as trilhas de áudio daquele vídeo
-                document.getElementById('playerArtista').innerText = "Extraindo áudio completo...";
-                const resStream = await fetch(`https://pipedapi.kavin.rocks/streams/${videoId}`);
-                const dadosStream = await resStream.json();
+            // O código vai tentar um servidor por vez. 
+            // Se falhar, pula pro próximo imediatamente.
+            for (const servidor of servidores) {
+                try {
+                    // Mostra na tela qual servidor está tentando hackear o áudio no momento
+                    const nomeServidor = servidor.split('//')[1];
+                    document.getElementById('playerArtista').innerText = `Testando: ${nomeServidor}`;
+                    
+                    const resBusca = await fetch(`${servidor}/search?q=${termoYoutube}&filter=all`);
+                    if (!resBusca.ok) continue; 
+                    
+                    const dadosBusca = await resBusca.json();
+                    if(!dadosBusca.items || dadosBusca.items.length === 0) continue;
+                    
+                    const urlVideo = dadosBusca.items[0].url;
+                    const videoId = urlVideo.split('?v=')[1] || urlVideo.split('/watch?v=')[1];
 
-                // Passo C: Filtra os dados brutos procurando um formato compatível com o celular (m4a ou mp4)
-                const streamAudio = dadosStream.audioStreams.find(stream => stream.mimeType.includes('m4a') || stream.mimeType.includes('mp4'));
+                    const resStream = await fetch(`${servidor}/streams/${videoId}`);
+                    if (!resStream.ok) continue;
 
-                if(streamAudio && streamAudio.url) {
-                    player.src = streamAudio.url; // Injeta o link puro e invisível
-                    document.getElementById('playerArtista').innerText = artista;
-                } else {
-                    throw new Error("Formato de áudio não compatível.");
+                    const dadosStream = await resStream.json();
+                    
+                    // Procura o áudio m4a compatível com o celular
+                    const streamAudio = dadosStream.audioStreams.find(stream => stream.mimeType.includes('m4a') || stream.mimeType.includes('mp4'));
+
+                    if(streamAudio && streamAudio.url) {
+                        audioEncontrado = streamAudio.url; // Achou! Salva o link.
+                        break; // Quebra o ciclo, não precisa testar os outros servidores.
+                    }
+                } catch (e) {
+                    console.log(`Falha silenciosa no servidor: ${servidor}`);
                 }
-
-            } catch (e) {
-                // PLANO B: O YouTube bloqueou a extração ou o servidor caiu? Toca os 30s da Apple para não quebrar o app.
-                console.error(e);
-                player.src = previaSegura;
-                document.getElementById('playerArtista').innerText = artista + " (Falha no bypass - Prévia)";
             }
 
-            // Inicia o som
+            // ==========================================
+            // VEREDITO FINAL E PLAY
+            // ==========================================
+            if (audioEncontrado) {
+                player.src = audioEncontrado;
+                document.getElementById('playerArtista').innerText = artista;
+            } else {
+                // Se TODOS os servidores piratas estiverem caídos, toca a prévia
+                player.src = previaSegura;
+                document.getElementById('playerArtista').innerText = artista + " (Falha geral - Prévia)";
+            }
+
             player.play();
         }
     </script>
