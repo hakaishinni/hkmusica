@@ -66,7 +66,7 @@
 <body>
 
     <div class="sidebar">
-        <h1>🎵 HK Music</h1>
+        <h1>🎵 HK Scripts Music</h1>
         <a class="menu-item" onclick="mostrarIncio()">🏠 Início</a>
         <a class="menu-item" onclick="document.getElementById('inputPesquisa').focus()">🔍 Buscar</a>
     </div>
@@ -81,11 +81,11 @@
         
         <div class="grid-generos" id="gridGeneros">
             <div class="card-genero" style="background:#1DB954;" onclick="buscarGenero('Pop')">Pop</div>
-            <div class="card-genero" style="background:#e91429;" onclick="buscarGenero('Rock')">Rock</div>
+            <div class="card-genero" style="background:#e91429;" onclick="buscarGenero('Sertanejo')">Sertanejo</div>
             <div class="card-genero" style="background:#bc59ff;" onclick="buscarGenero('Hip Hop')">Hip Hop</div>
             <div class="card-genero" style="background:#2941ab;" onclick="buscarGenero('Eletrônica')">Eletrônica</div>
-            <div class="card-genero" style="background:#d84000;" onclick="buscarGenero('R&B')">R&B</div>
-            <div class="card-genero" style="background:#148a08;" onclick="buscarGenero('Reggae')">Reggae</div>
+            <div class="card-genero" style="background:#d84000;" onclick="buscarGenero('Funk')">Funk</div>
+            <div class="card-genero" style="background:#148a08;" onclick="buscarGenero('Anime')">Anime</div>
         </div>
 
         <div id="resultadosBusca"></div>
@@ -122,14 +122,14 @@
             const termo = document.getElementById('inputPesquisa').value;
             if(!termo) return;
             
-            document.getElementById('tituloSecao').innerText = `Resultados globais para: "${termo}"`;
+            document.getElementById('tituloSecao').innerText = `Resultados para: "${termo}"`;
             document.getElementById('gridGeneros').style.display = 'none';
             const caixaResultados = document.getElementById('resultadosBusca');
             caixaResultados.style.display = 'block';
-            caixaResultados.innerHTML = "<p>Buscando no catálogo global da Apple...</p>";
+            caixaResultados.innerHTML = "<p>Buscando no catálogo da Apple...</p>";
 
             try {
-                // 1. CÉREBRO VISUAL: Busca Global Perfeita (Apple iTunes)
+                // 1. CÉREBRO VISUAL: Busca Global da Apple (Funciona para Zé Felipe, Rock Lee, etc)
                 const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(termo)}&entity=song&limit=15`);
                 const dados = await res.json();
 
@@ -144,7 +144,7 @@
                     const artista = musica.artistName.replace(/'/g, "");
                     const capa = musica.artworkUrl100;
                     const capaGrande = capa.replace('100x100', '300x300');
-                    const previaSegura = musica.previewUrl; // Guardamos a prévia de 30s como plano B
+                    const previaSegura = musica.previewUrl;
 
                     htmlLista += `
                         <div class="item-musica" onclick="tocarHibrido('${nome}', '${artista}', '${capaGrande}', '${previaSegura}')">
@@ -162,43 +162,57 @@
 
             } catch (e) {
                 console.error(e);
-                caixaResultados.innerHTML = "<p>Erro ao conectar com o catálogo global.</p>";
+                caixaResultados.innerHTML = "<p>Erro ao conectar com o catálogo visual.</p>";
             }
         }
 
         async function tocarHibrido(nome, artista, capa, previaSegura) {
-            // Atualiza a tela imediatamente para o usuário saber que clicou
+            // Atualiza a interface instantaneamente
             document.getElementById('playerCapa').src = capa;
             document.getElementById('playerTitulo').innerText = nome;
-            document.getElementById('playerArtista').innerText = "Carregando áudio completo...";
+            document.getElementById('playerArtista').innerText = "Conectando ao YouTube...";
             
             const player = document.getElementById('audioPlayer');
 
             try {
-                // 2. CÉREBRO INVISÍVEL: Busca a música exata no servidor que tem o MP4
-                const buscaExata = encodeURIComponent(`${nome} ${artista}`);
-                const urlApiSaavn = `https://saavn.sumit.co/api/search/songs?query=${buscaExata}&limit=1`;
+                // 2. CÉREBRO HACKER: Extração de áudio via Piped API
+                const termoYoutube = encodeURIComponent(`${nome} ${artista} official audio`);
                 
-                const res = await fetch(urlApiSaavn);
-                const resposta = await res.json();
+                // Passo A: Pesquisa no servidor pirata
+                const urlBusca = `https://pipedapi.kavin.rocks/search?q=${termoYoutube}&filter=all`;
+                const resBusca = await fetch(urlBusca);
+                const dadosBusca = await resBusca.json();
                 
-                if(resposta.data && resposta.data.results && resposta.data.results.length > 0) {
-                    // Achou! Pega a música inteira
-                    const urlAudioCompleto = resposta.data.results[0].downloadUrl[resposta.data.results[0].downloadUrl.length - 1].url;
-                    player.src = urlAudioCompleto;
-                    document.getElementById('playerArtista').innerText = artista; // Restaura o nome
+                // Pega o ID do primeiro vídeo encontrado
+                if(!dadosBusca.items || dadosBusca.items.length === 0) throw new Error("Vídeo não encontrado");
+                
+                // O URL vem no formato /watch?v=ID_DO_VIDEO
+                const urlVideo = dadosBusca.items[0].url;
+                const videoId = urlVideo.split('?v=')[1] || urlVideo.split('/watch?v=')[1];
+
+                // Passo B: Pede para o servidor extrair apenas as trilhas de áudio daquele vídeo
+                document.getElementById('playerArtista').innerText = "Extraindo áudio completo...";
+                const resStream = await fetch(`https://pipedapi.kavin.rocks/streams/${videoId}`);
+                const dadosStream = await resStream.json();
+
+                // Passo C: Filtra os dados brutos procurando um formato compatível com o celular (m4a ou mp4)
+                const streamAudio = dadosStream.audioStreams.find(stream => stream.mimeType.includes('m4a') || stream.mimeType.includes('mp4'));
+
+                if(streamAudio && streamAudio.url) {
+                    player.src = streamAudio.url; // Injeta o link puro e invisível
+                    document.getElementById('playerArtista').innerText = artista;
                 } else {
-                    // Força o erro para cair no plano B se não achar nada
-                    throw new Error("Música não encontrada no servidor completo");
+                    throw new Error("Formato de áudio não compatível.");
                 }
+
             } catch (e) {
-                // PLANO B: Se der qualquer erro ou o Saavn não tiver essa música específica, toca a prévia.
-                console.log("Falha no áudio completo. Usando prévia de segurança.");
+                // PLANO B: O YouTube bloqueou a extração ou o servidor caiu? Toca os 30s da Apple para não quebrar o app.
+                console.error(e);
                 player.src = previaSegura;
-                document.getElementById('playerArtista').innerText = artista + " (Prévia de 30s)";
+                document.getElementById('playerArtista').innerText = artista + " (Falha no bypass - Prévia)";
             }
 
-            // Toca a música!
+            // Inicia o som
             player.play();
         }
     </script>
