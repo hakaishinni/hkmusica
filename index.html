@@ -122,34 +122,32 @@
             const termo = document.getElementById('inputPesquisa').value;
             if(!termo) return;
             
-            document.getElementById('tituloSecao').innerText = `Resultados para: "${termo}"`;
+            document.getElementById('tituloSecao').innerText = `Resultados globais para: "${termo}"`;
             document.getElementById('gridGeneros').style.display = 'none';
             const caixaResultados = document.getElementById('resultadosBusca');
             caixaResultados.style.display = 'block';
-            caixaResultados.innerHTML = "<p>Buscando no catálogo global (Áudio Completo)...</p>";
+            caixaResultados.innerHTML = "<p>Buscando no catálogo global da Apple...</p>";
 
             try {
-                // ENDEREÇO ATUALIZADO E FUNCIONANDO
-                const urlApi = `https://saavn.sumit.co/api/search/songs?query=${encodeURIComponent(termo)}&limit=15`;
-                const res = await fetch(urlApi);
-                const resposta = await res.json();
-                
-                const dados = resposta.data.results;
+                // 1. CÉREBRO VISUAL: Busca Global Perfeita (Apple iTunes)
+                const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(termo)}&entity=song&limit=15`);
+                const dados = await res.json();
 
-                if(!dados || dados.length === 0) {
+                if(!dados.results || dados.results.length === 0) {
                     caixaResultados.innerHTML = "<p>Nenhuma música encontrada.</p>";
                     return;
                 }
 
                 let htmlLista = '';
-                dados.forEach(musica => {
-                    const nome = musica.name.replace(/'/g, ""); 
-                    const artista = musica.artists.primary[0].name.replace(/'/g, "");
-                    const capa = musica.image[2].url; 
-                    const urlAudioCompleto = musica.downloadUrl[musica.downloadUrl.length - 1].url;
+                dados.results.forEach(musica => {
+                    const nome = musica.trackName.replace(/'/g, ""); 
+                    const artista = musica.artistName.replace(/'/g, "");
+                    const capa = musica.artworkUrl100;
+                    const capaGrande = capa.replace('100x100', '300x300');
+                    const previaSegura = musica.previewUrl; // Guardamos a prévia de 30s como plano B
 
                     htmlLista += `
-                        <div class="item-musica" onclick="tocarMusica('${nome}', '${artista}', '${capa}', '${urlAudioCompleto}')">
+                        <div class="item-musica" onclick="tocarHibrido('${nome}', '${artista}', '${capaGrande}', '${previaSegura}')">
                             <img src="${capa}">
                             <div class="dados-musica">
                                 <p class="titulo-lista">${nome}</p>
@@ -164,18 +162,43 @@
 
             } catch (e) {
                 console.error(e);
-                caixaResultados.innerHTML = "<p>Erro ao conectar com a API de música. O servidor pode estar em manutenção.</p>";
+                caixaResultados.innerHTML = "<p>Erro ao conectar com o catálogo global.</p>";
             }
         }
 
-        function tocarMusica(nome, artista, capa, urlAudio) {
+        async function tocarHibrido(nome, artista, capa, previaSegura) {
+            // Atualiza a tela imediatamente para o usuário saber que clicou
             document.getElementById('playerCapa').src = capa;
             document.getElementById('playerTitulo').innerText = nome;
-            document.getElementById('playerArtista').innerText = artista;
-
-            // Injeta a MÚSICA COMPLETA no player HTML nativo
+            document.getElementById('playerArtista').innerText = "Carregando áudio completo...";
+            
             const player = document.getElementById('audioPlayer');
-            player.src = urlAudio;
+
+            try {
+                // 2. CÉREBRO INVISÍVEL: Busca a música exata no servidor que tem o MP4
+                const buscaExata = encodeURIComponent(`${nome} ${artista}`);
+                const urlApiSaavn = `https://saavn.sumit.co/api/search/songs?query=${buscaExata}&limit=1`;
+                
+                const res = await fetch(urlApiSaavn);
+                const resposta = await res.json();
+                
+                if(resposta.data && resposta.data.results && resposta.data.results.length > 0) {
+                    // Achou! Pega a música inteira
+                    const urlAudioCompleto = resposta.data.results[0].downloadUrl[resposta.data.results[0].downloadUrl.length - 1].url;
+                    player.src = urlAudioCompleto;
+                    document.getElementById('playerArtista').innerText = artista; // Restaura o nome
+                } else {
+                    // Força o erro para cair no plano B se não achar nada
+                    throw new Error("Música não encontrada no servidor completo");
+                }
+            } catch (e) {
+                // PLANO B: Se der qualquer erro ou o Saavn não tiver essa música específica, toca a prévia.
+                console.log("Falha no áudio completo. Usando prévia de segurança.");
+                player.src = previaSegura;
+                document.getElementById('playerArtista').innerText = artista + " (Prévia de 30s)";
+            }
+
+            // Toca a música!
             player.play();
         }
     </script>
