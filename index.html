@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HK Music App</title>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #000; color: #fff; display: flex; height: 100vh; overflow: hidden; }
+
+        /* Barra Lateral */
+        .sidebar { width: 240px; background-color: #000; padding: 20px; display: flex; flex-direction: column; gap: 20px; border-right: 1px solid #282828;}
+        .sidebar h1 { font-size: 22px; color: #1DB954; margin-bottom: 10px; }
+        .menu-item { color: #b3b3b3; text-decoration: none; font-weight: bold; font-size: 14px; cursor: pointer; transition: 0.2s; }
+        .menu-item:hover { color: #fff; }
+
+        /* Área Principal */
+        .conteudo-principal { flex: 1; background: linear-gradient(to bottom, #1a1a1a, #000); padding: 20px; overflow-y: auto; padding-bottom: 110px; }
+        .barra-busca { display: flex; gap: 10px; margin-bottom: 30px; }
+        .barra-busca input { flex: 1; padding: 12px; border-radius: 20px; border: none; background-color: #242424; color: white; outline: none;}
+        .barra-busca button { padding: 12px 24px; border-radius: 20px; border: none; background-color: #1DB954; color: #000; font-weight: bold; cursor: pointer; }
+
+        /* Títulos e Grid */
+        .secao-titulo { font-size: 22px; margin-bottom: 15px; }
+        .grid-generos { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; }
+        .card-genero { padding: 15px; border-radius: 8px; text-align: center; cursor: pointer; transition: 0.3s; font-weight: bold; height: 100px; display: flex; align-items: center; justify-content: center; font-size: 18px;}
+        .card-genero:hover { filter: brightness(1.2); transform: scale(1.02); }
+
+        /* Resultados da Busca */
+        #resultadosBusca { display: none; margin-top: 20px; }
+        .item-musica { display: flex; align-items: center; gap: 15px; background: #181818; padding: 10px; border-radius: 8px; cursor: pointer; margin-bottom: 10px; transition: 0.2s;}
+        .item-musica:hover { background: #282828; }
+        .item-musica img { width: 50px; height: 50px; border-radius: 4px; }
+        .dados-musica { flex: 1; }
+        .dados-musica p { margin: 0; }
+        .titulo-lista { font-weight: bold; font-size: 15px; }
+        .artista-lista { color: #b3b3b3; font-size: 13px; }
+
+        /* Player Fixo Embaixo */
+        .player-inferior { position: fixed; bottom: 0; left: 0; right: 0; height: 90px; background-color: #000; border-top: 1px solid #282828; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 100;}
+        .info-musica { display: flex; align-items: center; gap: 15px; width: 30%; }
+        .info-musica img { width: 56px; height: 56px; border-radius: 4px; background-color: #222; object-fit: cover;}
+        
+        /* Container do YouTube no lugar dos botões falsos */
+        .controles-midia { width: 40%; display: flex; justify-content: center; align-items: center; }
+        #containerYT { width: 100%; max-width: 300px; height: 60px; border-radius: 8px; overflow: hidden; background: #111; display: flex; justify-content: center; align-items: center; font-size: 12px; color: #666;}
+
+        /* Responsividade Mobile */
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            .sidebar { width: 100%; height: 60px; flex-direction: row; justify-content: space-around; align-items: center; padding: 0; order: 2; position: fixed; bottom: 90px; z-index: 10; border-right: none; }
+            .sidebar h1 { display: none; }
+            .conteudo-principal { order: 1; height: calc(100vh - 150px); padding-bottom: 20px;}
+            .info-musica { width: 50%; }
+            .controles-midia { width: 50%; }
+            #containerYT { height: 50px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h1>🎵 Music App</h1>
+        <a class="menu-item" onclick="mostrarIncio()">🏠 Início</a>
+        <a class="menu-item" onclick="document.getElementById('inputPesquisa').focus()">🔍 Buscar</a>
+    </div>
+
+    <div class="conteudo-principal">
+        <div class="barra-busca">
+            <input type="text" id="inputPesquisa" placeholder="Qual música ou artista você quer ouvir?">
+            <button onclick="executarBusca()">Buscar</button>
+        </div>
+
+        <h2 class="secao-titulo" id="tituloSecao">Navegar por todos os géneros</h2>
+        
+        <div class="grid-generos" id="gridGeneros">
+            <div class="card-genero" style="background:#1DB954;" onclick="buscarGenero('Pop')">Pop</div>
+            <div class="card-genero" style="background:#e91429;" onclick="buscarGenero('Rock')">Rock</div>
+            <div class="card-genero" style="background:#bc59ff;" onclick="buscarGenero('Hip Hop')">Hip Hop</div>
+            <div class="card-genero" style="background:#2941ab;" onclick="buscarGenero('Eletrônica')">Eletrônica</div>
+            <div class="card-genero" style="background:#d84000;" onclick="buscarGenero('R&B')">R&B</div>
+            <div class="card-genero" style="background:#148a08;" onclick="buscarGenero('Reggae')">Reggae</div>
+        </div>
+
+        <div id="resultadosBusca"></div>
+    </div>
+
+    <div class="player-inferior">
+        <div class="info-musica">
+            <img id="playerCapa" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt="Capa">
+            <div>
+                <p id="playerTitulo" style="font-size: 14px; font-weight: bold; color: #fff;">Pronto para tocar</p>
+                <p id="playerArtista" style="font-size: 12px; color: #b3b3b3;">Escolha uma faixa</p>
+            </div>
+        </div>
+
+        <div class="controles-midia">
+            <div id="containerYT">Aguardando música...</div>
+        </div>
+    </div>
+
+    <script>
+        function mostrarIncio() {
+            document.getElementById('tituloSecao').innerText = "Navegar por todos os géneros";
+            document.getElementById('gridGeneros').style.display = 'grid';
+            document.getElementById('resultadosBusca').style.display = 'none';
+            document.getElementById('inputPesquisa').value = "";
+        }
+
+        function buscarGenero(genero) {
+            document.getElementById('inputPesquisa').value = genero + " top hits";
+            executarBusca();
+        }
+
+        async function executarBusca() {
+            const termo = document.getElementById('inputPesquisa').value;
+            if(!termo) return;
+            
+            // Troca a tela de Gêneros pela tela de Resultados
+            document.getElementById('tituloSecao').innerText = `Resultados para: "${termo}"`;
+            document.getElementById('gridGeneros').style.display = 'none';
+            const caixaResultados = document.getElementById('resultadosBusca');
+            caixaResultados.style.display = 'block';
+            caixaResultados.innerHTML = "<p>Pesquisando no catálogo...</p>";
+
+            try {
+                // Puxa 15 resultados da API do iTunes
+                const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(termo)}&entity=song&limit=15`);
+                const dados = await res.json();
+                
+                if(dados.results.length === 0) {
+                    caixaResultados.innerHTML = "<p>Nenhuma música encontrada.</p>";
+                    return;
+                }
+
+                let htmlLista = '';
+                dados.results.forEach(musica => {
+                    // Limpa aspas simples para não quebrar o clique do botão no HTML
+                    const nome = musica.trackName.replace(/'/g, ""); 
+                    const artista = musica.artistName.replace(/'/g, "");
+                    const capa = musica.artworkUrl100; // Pega capa em resolução média
+                    const capaGrande = capa.replace('100x100', '300x300'); // Guarda a grande pro player
+
+                    // Cria o card da música na lista
+                    htmlLista += `
+                        <div class="item-musica" onclick="tocarMusica('${nome}', '${artista}', '${capaGrande}')">
+                            <img src="${capa}">
+                            <div class="dados-musica">
+                                <p class="titulo-lista">${nome}</p>
+                                <p class="artista-lista">${artista}</p>
+                            </div>
+                            <div style="color: #1DB954; font-size: 24px;">▶</div>
+                        </div>
+                    `;
+                });
+
+                caixaResultados.innerHTML = htmlLista;
+
+            } catch (e) {
+                caixaResultados.innerHTML = "<p>Erro ao conectar com a API.</p>";
+            }
+        }
+
+        function tocarMusica(nome, artista, capa) {
+            // Atualiza a imagem e os textos do Player inferior
+            document.getElementById('playerCapa').src = capa;
+            document.getElementById('playerTitulo').innerText = nome;
+            document.getElementById('playerArtista').innerText = artista;
+
+            // Injeta o mini player do YouTube embutido no centro
+            const buscaYT = encodeURIComponent(`${nome} ${artista} lyric`);
+            const containerYT = document.getElementById('containerYT');
+            
+            // O iframe vai carregar e mostrar apenas a barra de controle nativa do YouTube
+            containerYT.innerHTML = `
+                <iframe width="100%" height="60" 
+                    src="https://www.youtube.com/embed?listType=search&list=${buscaYT}&autoplay=1" 
+                    frameborder="0" allow="autoplay; encrypted-media" allowfullscreen>
+                </iframe>
+            `;
+        }
+    </script>
+
+</body>
+</html>
